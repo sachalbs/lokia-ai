@@ -4,10 +4,9 @@ import { useState } from "react";
 import {
   MessageSquare,
   Plus,
-  Sun,
-  Moon,
+  Server,
+  Cloud,
   Trash2,
-  MoreHorizontal,
   FileText,
   Settings,
   LogOut,
@@ -26,8 +25,8 @@ interface SidebarProps {
   onSelectConversation: (id: string) => void;
   onNewConversation: () => void;
   onDeleteConversation: (id: string) => void;
-  isDarkMode: boolean;
-  onToggleTheme: () => void;
+  isLocalMode: boolean;
+  onToggleLLMMode: () => void;
 }
 
 export default function Sidebar({
@@ -36,8 +35,8 @@ export default function Sidebar({
   onSelectConversation,
   onNewConversation,
   onDeleteConversation,
-  isDarkMode,
-  onToggleTheme,
+  isLocalMode,
+  onToggleLLMMode,
 }: SidebarProps) {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
 
@@ -63,7 +62,7 @@ export default function Sidebar({
             Lokia
           </h1>
           <p className="text-xs text-[var(--color-text-muted)]">
-            {isDarkMode ? "Mode local" : "Mode cloud"}
+            {isLocalMode ? "Mode local" : "Mode cloud"}
           </p>
         </div>
       </div>
@@ -138,28 +137,28 @@ export default function Sidebar({
           <span className="text-sm">Parametres</span>
         </button>
 
-        {/* Theme toggle */}
+        {/* LLM Mode toggle */}
         <div className="flex items-center justify-between px-3 py-2">
           <span className="text-sm text-[var(--color-text-secondary)]">
-            Theme
+            Mode LLM
           </span>
           <button
-            onClick={onToggleTheme}
+            onClick={onToggleLLMMode}
             className={clsx(
               "relative w-14 h-7 rounded-full transition-colors duration-300",
-              isDarkMode ? "bg-accent-600" : "bg-[var(--color-border)]"
+              isLocalMode ? "bg-emerald-600" : "bg-sky-500"
             )}
           >
             <div
               className={clsx(
                 "absolute top-1 w-5 h-5 rounded-full bg-white shadow-md transition-all duration-300 flex items-center justify-center",
-                isDarkMode ? "left-8" : "left-1"
+                isLocalMode ? "left-1" : "left-8"
               )}
             >
-              {isDarkMode ? (
-                <Moon className="w-3 h-3 text-accent-600" />
+              {isLocalMode ? (
+                <Server className="w-3 h-3 text-emerald-600" />
               ) : (
-                <Sun className="w-3 h-3 text-amber-500" />
+                <Cloud className="w-3 h-3 text-sky-500" />
               )}
             </div>
           </button>

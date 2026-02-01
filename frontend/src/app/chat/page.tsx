@@ -4,7 +4,7 @@ import { useState, useRef, useEffect } from "react";
 import Sidebar from "@/components/Sidebar";
 import ChatMessage from "@/components/ChatMessage";
 import ChatInput from "@/components/ChatInput";
-import { Sparkles, MessageSquarePlus } from "lucide-react";
+import { MessageSquarePlus } from "lucide-react";
 
 interface Message {
   id: string;
@@ -61,7 +61,7 @@ const demoMessages: Message[] = [
 ];
 
 export default function ChatPage() {
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  const [isLocalMode, setIsLocalMode] = useState(true);
   const [conversations, setConversations] =
     useState<Conversation[]>(demoConversations);
   const [activeConversationId, setActiveConversationId] = useState<string>("1");
@@ -69,22 +69,22 @@ export default function ChatPage() {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Apply theme class to document
+  // Apply theme class based on LLM mode (local = dark, API = light)
   useEffect(() => {
-    if (isDarkMode) {
+    if (isLocalMode) {
       document.documentElement.classList.add("dark");
     } else {
       document.documentElement.classList.remove("dark");
     }
-  }, [isDarkMode]);
+  }, [isLocalMode]);
 
   // Scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
-  const handleToggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
+  const handleToggleLLMMode = () => {
+    setIsLocalMode(!isLocalMode);
   };
 
   const handleNewConversation = () => {
@@ -151,27 +151,23 @@ export default function ChatPage() {
         onSelectConversation={handleSelectConversation}
         onNewConversation={handleNewConversation}
         onDeleteConversation={handleDeleteConversation}
-        isDarkMode={isDarkMode}
-        onToggleTheme={handleToggleTheme}
+        isLocalMode={isLocalMode}
+        onToggleLLMMode={handleToggleLLMMode}
       />
 
       {/* Main chat area */}
       <main className="flex-1 flex flex-col h-full overflow-hidden">
         {/* Header */}
-        <header className="flex items-center justify-between px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-bg)]">
+        <header className="flex items-center px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-bg)]">
           <div className="flex items-center gap-3">
             <div
               className={`w-2 h-2 rounded-full ${
-                isDarkMode ? "bg-emerald-500" : "bg-sky-500"
+                isLocalMode ? "bg-emerald-500" : "bg-sky-500"
               }`}
             />
             <span className="text-sm font-medium text-[var(--color-text-secondary)]">
-              {isDarkMode ? "Mode local - 100% confidentiel" : "Mode cloud - Mistral Large"}
+              {isLocalMode ? "Mode local - 100% prive" : "Mode cloud - Plus rapide"}
             </span>
-          </div>
-          <div className="flex items-center gap-2 text-xs text-[var(--color-text-muted)]">
-            <Sparkles className="w-4 h-4" />
-            <span>Propulse par Mistral</span>
           </div>
         </header>
 
