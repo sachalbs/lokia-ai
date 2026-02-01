@@ -1,0 +1,207 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Import Inter font */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    @apply antialiased;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+  }
+
+  body {
+    @apply font-sans;
+  }
+
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply rounded-full;
+  }
+
+  /* Dark mode (Local) scrollbar */
+  .theme-local ::-webkit-scrollbar-thumb {
+    @apply bg-local-border hover:bg-local-text-muted;
+  }
+
+  /* Light mode (API) scrollbar */
+  .theme-api ::-webkit-scrollbar-thumb {
+    @apply bg-api-border hover:bg-api-text-muted;
+  }
+}
+
+@layer components {
+  /* Glassmorphism effect */
+  .glass {
+    @apply backdrop-blur-xl bg-opacity-80;
+  }
+
+  .glass-local {
+    @apply backdrop-blur-xl bg-local-sidebar/80 border border-local-border/50;
+  }
+
+  .glass-api {
+    @apply backdrop-blur-xl bg-api-sidebar/80 border border-api-border/50;
+  }
+
+  /* Message bubbles */
+  .message-bubble {
+    @apply rounded-2xl px-4 py-3 max-w-[85%] animate-slide-up;
+  }
+
+  .message-bubble-user {
+    @apply bg-local-accent text-white ml-auto;
+  }
+
+  .message-bubble-assistant-local {
+    @apply bg-local-card text-local-text border border-local-border;
+  }
+
+  .message-bubble-assistant-api {
+    @apply bg-api-card text-api-text border border-api-border shadow-soft;
+  }
+
+  /* Input styling */
+  .chat-input {
+    @apply w-full rounded-2xl border-2 px-4 py-3
+           transition-all duration-200
+           focus:outline-none focus:ring-0;
+  }
+
+  .chat-input-local {
+    @apply bg-local-card border-local-border text-local-text
+           placeholder:text-local-text-muted
+           focus:border-local-accent;
+  }
+
+  .chat-input-api {
+    @apply bg-white border-api-border text-api-text
+           placeholder:text-api-text-muted
+           focus:border-api-accent;
+  }
+
+  /* Button styles */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2
+           rounded-xl px-4 py-2 font-medium
+           transition-all duration-200
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-primary-local {
+    @apply bg-local-accent text-white
+           hover:bg-local-accent-hover
+           focus:ring-2 focus:ring-local-accent/50;
+  }
+
+  .btn-primary-api {
+    @apply bg-api-accent text-white
+           hover:bg-api-accent-hover
+           focus:ring-2 focus:ring-api-accent/50;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2
+           rounded-xl px-3 py-2 font-medium
+           transition-all duration-200;
+  }
+
+  .btn-ghost-local {
+    @apply text-local-text-muted
+           hover:text-local-text hover:bg-local-card;
+  }
+
+  .btn-ghost-api {
+    @apply text-api-text-muted
+           hover:text-api-text hover:bg-api-card;
+  }
+
+  /* Conversation item */
+  .conversation-item {
+    @apply flex items-center gap-3 rounded-xl px-3 py-2.5
+           cursor-pointer transition-all duration-200;
+  }
+
+  .conversation-item-local {
+    @apply hover:bg-local-card text-local-text-muted hover:text-local-text;
+  }
+
+  .conversation-item-local.active {
+    @apply bg-local-card text-local-text border-l-2 border-local-accent;
+  }
+
+  .conversation-item-api {
+    @apply hover:bg-white text-api-text-muted hover:text-api-text;
+  }
+
+  .conversation-item-api.active {
+    @apply bg-white text-api-text border-l-2 border-api-accent shadow-soft;
+  }
+
+  /* Mode indicator badge */
+  .mode-badge {
+    @apply inline-flex items-center gap-1.5 px-3 py-1 rounded-full
+           text-xs font-medium transition-all duration-200;
+  }
+
+  .mode-badge-local {
+    @apply bg-local-accent/10 text-local-accent border border-local-accent/20;
+  }
+
+  .mode-badge-api {
+    @apply bg-api-accent/10 text-api-accent border border-api-accent/20;
+  }
+
+  /* Source citation */
+  .source-badge {
+    @apply inline-flex items-center gap-1 px-2 py-1 rounded-lg
+           text-xs font-medium transition-all duration-200 cursor-pointer;
+  }
+
+  .source-badge-local {
+    @apply bg-local-card border border-local-border text-local-text-muted
+           hover:border-local-accent hover:text-local-accent;
+  }
+
+  .source-badge-api {
+    @apply bg-api-sidebar border border-api-border text-api-text-muted
+           hover:border-api-accent hover:text-api-accent;
+  }
+}
+
+@layer utilities {
+  /* Streaming cursor animation */
+  .streaming-cursor::after {
+    content: '|';
+    @apply animate-cursor-blink ml-0.5 text-current;
+  }
+
+  /* Fade mask for long content */
+  .fade-mask-bottom {
+    mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to bottom, black 90%, transparent 100%);
+  }
+
+  /* Text gradient */
+  .text-gradient-local {
+    @apply bg-gradient-to-r from-local-accent to-blue-400 bg-clip-text text-transparent;
+  }
+
+  .text-gradient-api {
+    @apply bg-gradient-to-r from-api-accent to-cyan-400 bg-clip-text text-transparent;
+  }
+}
