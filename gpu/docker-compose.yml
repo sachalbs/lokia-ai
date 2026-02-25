@@ -1,42 +1,32 @@
 # ============================================================
-# GPU Server Docker Compose — Deploy on: 51.15.140.134 (L4 24GB)
+# GPU Server Docker Compose — 51.15.140.134 (L4 24GB)
 # ============================================================
-# This runs vLLM with Qwen2.5-32B-Instruct-AWQ (4-bit quantized)
-# which fits in ~18GB VRAM on an L4 GPU.
+# Ollama is already installed natively with qwen3:30b.
+# This compose file is provided as an alternative if you ever
+# want to run Ollama via Docker instead.
 #
-# Usage:
-#   1. SSH into the GPU server: ssh ubuntu@51.15.140.134
-#   2. Install Docker + NVIDIA Container Toolkit
-#   3. Copy this file and run: docker compose up -d
-#   4. Model will be available at http://51.15.140.134:8080/v1
-#
-# First startup downloads the model (~18GB), subsequent starts are instant.
+# Current setup (native Ollama):
+#   - Ollama running on port 11434
+#   - Model: qwen3:30b (~18GB VRAM)
+#   - API: http://51.15.140.134:11434/api/chat
 # ============================================================
 
 version: '3.8'
 
 services:
-  vllm:
-    image: vllm/vllm-openai:latest
-    container_name: lokia-vllm
+  ollama:
+    image: ollama/ollama:latest
+    container_name: lokia-ollama
     runtime: nvidia
     environment:
       - NVIDIA_VISIBLE_DEVICES=all
-      - HF_TOKEN=${HF_TOKEN:-}
+      - OLLAMA_HOST=0.0.0.0
+      - OLLAMA_NUM_PARALLEL=4
+      - OLLAMA_MAX_LOADED_MODELS=1
     volumes:
-      - model_cache:/root/.cache/huggingface
+      - ollama_data:/root/.ollama
     ports:
-      - "8080:8000"
-    command: >
-      --model Qwen/Qwen2.5-32B-Instruct-AWQ
-      --quantization awq
-      --dtype half
-      --max-model-len 8192
-      --gpu-memory-utilization 0.90
-      --tensor-parallel-size 1
-      --max-num-seqs 8
-      --enable-prefix-caching
-      --trust-remote-code
+      - "11434:11434"
     deploy:
       resources:
         reservations:
@@ -46,11 +36,10 @@ services:
               capabilities: [gpu]
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:11434/api/tags"]
       interval: 30s
       timeout: 10s
       retries: 5
-      start_period: 120s
 
 volumes:
-  model_cache:
+  ollama_data:

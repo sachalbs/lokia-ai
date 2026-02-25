@@ -15,7 +15,7 @@ async def lifespan(app: FastAPI):
         try:
             async with httpx.AsyncClient() as client:
                 resp = await client.get(
-                    f"{settings.LOCAL_MODEL_URL}/models",
+                    f"{settings.LOCAL_MODEL_URL}/api/tags",
                     timeout=5.0,
                 )
                 if resp.status_code == 200:

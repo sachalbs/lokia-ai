@@ -1,69 +1,67 @@
 #!/bin/bash
 # ============================================================
-# GPU Server Setup Script — Run on: 51.15.140.134 (L4 24GB)
+# GPU Server Setup — 51.15.140.134 (L4 24GB)
 # ============================================================
-# This script installs Docker, NVIDIA drivers, and starts vLLM.
-# Run as: sudo bash setup.sh
+# Ollama is already installed with qwen3:30b.
+# This script helps verify and optimize the setup.
 # ============================================================
 
 set -e
 
-echo "=== Lokia AI — GPU Server Setup ==="
-echo "Target: NVIDIA L4 24GB with Qwen2.5-32B-Instruct-AWQ"
+echo "=== Lokia AI — GPU Server Check ==="
+
+# Check NVIDIA GPU
+echo "[1/4] GPU Status:"
+nvidia-smi
+
+# Check Ollama
 echo ""
-
-# 1. Update system
-echo "[1/5] Updating system..."
-apt-get update && apt-get upgrade -y
-
-# 2. Install NVIDIA drivers (if not already installed)
-if ! command -v nvidia-smi &> /dev/null; then
-    echo "[2/5] Installing NVIDIA drivers..."
-    apt-get install -y nvidia-driver-535 nvidia-utils-535
-    echo "NVIDIA drivers installed. A REBOOT may be required."
+echo "[2/4] Ollama Status:"
+if command -v ollama &> /dev/null; then
+    echo "Ollama is installed."
+    ollama list
 else
-    echo "[2/5] NVIDIA drivers already installed."
-    nvidia-smi
+    echo "ERROR: Ollama not found. Install with: curl -fsSL https://ollama.com/install.sh | sh"
+    exit 1
 fi
 
-# 3. Install Docker
-if ! command -v docker &> /dev/null; then
-    echo "[3/5] Installing Docker..."
-    curl -fsSL https://get.docker.com | sh
-    systemctl enable docker
-    systemctl start docker
+# Check if qwen3:30b is loaded
+echo ""
+echo "[3/4] Checking qwen3:30b model..."
+if ollama list | grep -q "qwen3"; then
+    echo "qwen3:30b is available."
 else
-    echo "[3/5] Docker already installed."
+    echo "Pulling qwen3:30b..."
+    ollama pull qwen3:30b
 fi
 
-# 4. Install NVIDIA Container Toolkit
-if ! dpkg -l | grep -q nvidia-container-toolkit; then
-    echo "[4/5] Installing NVIDIA Container Toolkit..."
-    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | \
-        gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
-    curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
-        sed 's#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g' | \
-        tee /etc/apt/sources.list.d/nvidia-container-toolkit.list
-    apt-get update
-    apt-get install -y nvidia-container-toolkit
-    nvidia-ctk runtime configure --runtime=docker
-    systemctl restart docker
+# Verify Ollama is listening on all interfaces
+echo ""
+echo "[4/4] Verifying API accessibility..."
+
+# Check if Ollama is bound to 0.0.0.0 (needed for remote access from VPS)
+if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
+    echo "Ollama API is responding on localhost."
 else
-    echo "[4/5] NVIDIA Container Toolkit already installed."
+    echo "WARNING: Ollama API is not responding. Start it with: ollama serve"
 fi
 
-# 5. Start vLLM
-echo "[5/5] Starting vLLM with Qwen2.5-32B-Instruct-AWQ..."
-cd "$(dirname "$0")"
-docker compose up -d
-
 echo ""
-echo "=== Setup Complete ==="
-echo "vLLM is starting. First launch downloads the model (~18GB)."
-echo "Check status with: docker logs -f lokia-vllm"
-echo "API will be available at: http://$(hostname -I | awk '{print $1}'):8080/v1"
+echo "=== Optimization Tips ==="
 echo ""
-echo "Test with:"
-echo '  curl http://localhost:8080/v1/chat/completions \'
-echo '    -H "Content-Type: application/json" \'
-echo '    -d '\''{"model": "Qwen/Qwen2.5-32B-Instruct-AWQ", "messages": [{"role": "user", "content": "Bonjour !"}], "max_tokens": 100}'\'''
+echo "1. Make sure Ollama listens on 0.0.0.0 (not just localhost):"
+echo "   Edit /etc/systemd/system/ollama.service and add:"
+echo "     Environment=\"OLLAMA_HOST=0.0.0.0\""
+echo "   Then: sudo systemctl daemon-reload && sudo systemctl restart ollama"
+echo ""
+echo "2. Allow parallel requests:"
+echo "   Add to ollama.service:"
+echo "     Environment=\"OLLAMA_NUM_PARALLEL=4\""
+echo ""
+echo "3. Keep model loaded in VRAM (avoid cold starts):"
+echo "   Add to ollama.service:"
+echo "     Environment=\"OLLAMA_KEEP_ALIVE=-1\""
+echo ""
+echo "4. Test from VPS (54.38.243.146):"
+echo "   curl http://51.15.140.134:11434/api/chat \\"
+echo "     -d '{\"model\": \"qwen3:30b\", \"messages\": [{\"role\": \"user\", \"content\": \"Bonjour !\"}], \"stream\": false}'"

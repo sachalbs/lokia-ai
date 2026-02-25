@@ -6,7 +6,7 @@ from app.core.config import settings
 
 
 class AIService:
-    """Service for AI model interactions — supports local vLLM + cloud APIs."""
+    """Service for AI model interactions — supports local Ollama + cloud APIs."""
 
     def __init__(self):
         self.openai_api_key = settings.OPENAI_API_KEY
@@ -39,92 +39,99 @@ class AIService:
         model = model or self.default_model
 
         if model == "qwen-local" or model.startswith("local:"):
-            return await self._local_completion(messages)
+            return await self._ollama_completion(messages)
         elif model.startswith("gpt"):
             return await self._openai_completion(messages, model)
         elif model.startswith("claude"):
             return await self._anthropic_completion(messages, model)
         else:
-            # Default: try local model
-            return await self._local_completion(messages)
+            # Default: try local Ollama
+            return await self._ollama_completion(messages)
 
     async def generate_response_stream(
         self,
         messages: list[dict],
         model: Optional[str] = None,
     ) -> AsyncGenerator[str, None]:
-        """Generate a streaming response from the local model."""
+        """Generate a streaming response."""
         model = model or self.default_model
 
-        if model == "qwen-local" or model.startswith("local:") or model not in ["gpt-4", "gpt-3.5-turbo"]:
-            async for chunk in self._local_completion_stream(messages):
+        if model == "qwen-local" or model.startswith("local:"):
+            async for chunk in self._ollama_completion_stream(messages):
                 yield chunk
         elif model.startswith("gpt"):
             async for chunk in self._openai_completion_stream(messages, model):
                 yield chunk
         else:
-            async for chunk in self._local_completion_stream(messages):
+            async for chunk in self._ollama_completion_stream(messages):
                 yield chunk
 
-    async def _local_completion(self, messages: list[dict]) -> str:
-        """Generate completion using local vLLM (OpenAI-compatible API)."""
+    # ── Ollama (local GPU) ──────────────────────────────────────
+
+    async def _ollama_completion(self, messages: list[dict]) -> str:
+        """Generate completion using Ollama API on GPU server."""
         full_messages = self._build_messages_with_system(messages)
 
         async with httpx.AsyncClient() as client:
             response = await client.post(
-                f"{self.local_model_url}/chat/completions",
-                headers={"Content-Type": "application/json"},
+                f"{self.local_model_url}/api/chat",
                 json={
                     "model": self.local_model_name,
                     "messages": full_messages,
-                    "temperature": self.temperature,
-                    "top_p": self.top_p,
-                    "max_tokens": self.max_tokens,
-                    "repetition_penalty": self.repetition_penalty,
                     "stream": False,
+                    "options": {
+                        "temperature": self.temperature,
+                        "top_p": self.top_p,
+                        "top_k": self.top_k,
+                        "num_predict": self.max_tokens,
+                        "repeat_penalty": self.repetition_penalty,
+                    },
                 },
                 timeout=120.0,
             )
             response.raise_for_status()
             data = response.json()
-            return data["choices"][0]["message"]["content"]
+            return data["message"]["content"]
 
-    async def _local_completion_stream(
+    async def _ollama_completion_stream(
         self, messages: list[dict]
     ) -> AsyncGenerator[str, None]:
-        """Stream completion from local vLLM."""
+        """Stream completion from Ollama API."""
         full_messages = self._build_messages_with_system(messages)
 
         async with httpx.AsyncClient() as client:
             async with client.stream(
                 "POST",
-                f"{self.local_model_url}/chat/completions",
-                headers={"Content-Type": "application/json"},
+                f"{self.local_model_url}/api/chat",
                 json={
                     "model": self.local_model_name,
                     "messages": full_messages,
-                    "temperature": self.temperature,
-                    "top_p": self.top_p,
-                    "max_tokens": self.max_tokens,
-                    "repetition_penalty": self.repetition_penalty,
                     "stream": True,
+                    "options": {
+                        "temperature": self.temperature,
+                        "top_p": self.top_p,
+                        "top_k": self.top_k,
+                        "num_predict": self.max_tokens,
+                        "repeat_penalty": self.repetition_penalty,
+                    },
                 },
                 timeout=120.0,
             ) as response:
                 response.raise_for_status()
                 async for line in response.aiter_lines():
-                    if line.startswith("data: "):
-                        data_str = line[6:]
-                        if data_str.strip() == "[DONE]":
+                    if not line:
+                        continue
+                    try:
+                        data = json.loads(line)
+                        if data.get("done"):
                             break
-                        try:
-                            data = json.loads(data_str)
-                            delta = data["choices"][0].get("delta", {})
-                            content = delta.get("content", "")
-                            if content:
-                                yield content
-                        except json.JSONDecodeError:
-                            continue
+                        content = data.get("message", {}).get("content", "")
+                        if content:
+                            yield content
+                    except json.JSONDecodeError:
+                        continue
+
+    # ── OpenAI (cloud fallback) ─────────────────────────────────
 
     async def _openai_completion(self, messages: list[dict], model: str) -> str:
         """Generate completion using OpenAI API."""
@@ -195,6 +202,8 @@ class AIService:
                         except json.JSONDecodeError:
                             continue
 
+    # ── Anthropic (cloud fallback) ──────────────────────────────
+
     async def _anthropic_completion(self, messages: list[dict], model: str) -> str:
         """Generate completion using Anthropic API."""
         if not self.anthropic_api_key:
@@ -202,7 +211,6 @@ class AIService:
 
         full_messages = self._build_messages_with_system(messages)
 
-        # Convert messages format for Anthropic
         system_message = None
         anthropic_messages = []
         for msg in full_messages:

@@ -28,9 +28,9 @@ class Settings(BaseSettings):
     ANTHROPIC_API_KEY: Optional[str] = None
     DEFAULT_AI_MODEL: str = "qwen-local"
 
-    # Local Model (vLLM) - Points to the GPU server
-    LOCAL_MODEL_URL: str = "http://localhost:8080/v1"
-    LOCAL_MODEL_NAME: str = "Qwen/Qwen2.5-32B-Instruct-AWQ"
+    # Local Model (Ollama) - Points to the GPU server
+    LOCAL_MODEL_URL: str = "http://51.15.140.134:11434"
+    LOCAL_MODEL_NAME: str = "qwen3:30b"
 
     # Inference parameters - optimized for Qwen 30B quality
     AI_TEMPERATURE: float = 0.7
