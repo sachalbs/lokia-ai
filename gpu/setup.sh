@@ -1,67 +1,73 @@
 #!/bin/bash
 # ============================================================
-# GPU Server Setup — 51.15.140.134 (L4 24GB)
-# ============================================================
-# Ollama is already installed with qwen3:30b.
-# This script helps verify and optimize the setup.
+# GPU Server Optimization — ssh root@51.15.140.134
+# Scaleway L4-1-24G | 8 cores | 48GB RAM | 1x L4 24GB VRAM
+# Ollama + qwen3:30b already running (~18GB VRAM)
 # ============================================================
 
 set -e
 
-echo "=== Lokia AI — GPU Server Check ==="
+echo "=== Lokia AI — GPU Server Optimization ==="
 
-# Check NVIDIA GPU
-echo "[1/4] GPU Status:"
+# 1. Check GPU
+echo "[1/5] GPU Status:"
 nvidia-smi
 
-# Check Ollama
+# 2. Check Ollama
 echo ""
-echo "[2/4] Ollama Status:"
-if command -v ollama &> /dev/null; then
-    echo "Ollama is installed."
-    ollama list
-else
-    echo "ERROR: Ollama not found. Install with: curl -fsSL https://ollama.com/install.sh | sh"
-    exit 1
-fi
+echo "[2/5] Ollama Status:"
+ollama list
 
-# Check if qwen3:30b is loaded
+# 3. Optimize Ollama systemd service
 echo ""
-echo "[3/4] Checking qwen3:30b model..."
-if ollama list | grep -q "qwen3"; then
-    echo "qwen3:30b is available."
-else
-    echo "Pulling qwen3:30b..."
-    ollama pull qwen3:30b
-fi
+echo "[3/5] Optimizing Ollama service..."
 
-# Verify Ollama is listening on all interfaces
-echo ""
-echo "[4/4] Verifying API accessibility..."
+OLLAMA_SERVICE="/etc/systemd/system/ollama.service.d/override.conf"
+mkdir -p /etc/systemd/system/ollama.service.d/
 
-# Check if Ollama is bound to 0.0.0.0 (needed for remote access from VPS)
-if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
-    echo "Ollama API is responding on localhost."
-else
-    echo "WARNING: Ollama API is not responding. Start it with: ollama serve"
-fi
+cat > "$OLLAMA_SERVICE" << 'CONF'
+[Service]
+# Listen on all interfaces (required for VPS to reach this server)
+Environment="OLLAMA_HOST=0.0.0.0"
+# Allow 4 parallel requests
+Environment="OLLAMA_NUM_PARALLEL=4"
+# Keep model loaded in VRAM permanently (no cold start)
+Environment="OLLAMA_KEEP_ALIVE=-1"
+# Max loaded models (we only have 1 GPU with 24GB)
+Environment="OLLAMA_MAX_LOADED_MODELS=1"
+CONF
+
+echo "Ollama override written to $OLLAMA_SERVICE"
+systemctl daemon-reload
+systemctl restart ollama
+
+# Wait for Ollama to come back up
+echo "Waiting for Ollama to restart..."
+sleep 3
+
+# 4. Verify API is accessible
+echo ""
+echo "[4/5] Verifying API..."
+for i in 1 2 3 4 5; do
+    if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
+        echo "Ollama API is responding."
+        break
+    fi
+    echo "Waiting... ($i/5)"
+    sleep 2
+done
+
+# 5. Warm up: make sure qwen3:30b is loaded in VRAM
+echo ""
+echo "[5/5] Warming up qwen3:30b in VRAM..."
+curl -s http://localhost:11434/api/chat \
+    -d '{"model": "qwen3:30b", "messages": [{"role": "user", "content": "test"}], "stream": false}' \
+    > /dev/null 2>&1 && echo "Model warmed up and loaded in VRAM." || echo "Warning: warmup failed."
 
 echo ""
-echo "=== Optimization Tips ==="
+echo "=== Done ==="
+echo "Ollama is optimized and listening on 0.0.0.0:11434"
 echo ""
-echo "1. Make sure Ollama listens on 0.0.0.0 (not just localhost):"
-echo "   Edit /etc/systemd/system/ollama.service and add:"
-echo "     Environment=\"OLLAMA_HOST=0.0.0.0\""
-echo "   Then: sudo systemctl daemon-reload && sudo systemctl restart ollama"
-echo ""
-echo "2. Allow parallel requests:"
-echo "   Add to ollama.service:"
-echo "     Environment=\"OLLAMA_NUM_PARALLEL=4\""
-echo ""
-echo "3. Keep model loaded in VRAM (avoid cold starts):"
-echo "   Add to ollama.service:"
-echo "     Environment=\"OLLAMA_KEEP_ALIVE=-1\""
-echo ""
-echo "4. Test from VPS (54.38.243.146):"
-echo "   curl http://51.15.140.134:11434/api/chat \\"
-echo "     -d '{\"model\": \"qwen3:30b\", \"messages\": [{\"role\": \"user\", \"content\": \"Bonjour !\"}], \"stream\": false}'"
+echo "Test from VPS (54.38.243.146):"
+echo "  curl http://51.15.140.134:11434/api/chat \\"
+echo "    -d '{\"model\": \"qwen3:30b\", \"messages\": [{\"role\": \"user\", \"content\": \"Bonjour !\"}], \"stream\": false}'"
