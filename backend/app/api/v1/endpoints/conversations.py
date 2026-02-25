@@ -1,4 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import List
 
@@ -97,3 +98,40 @@ async def send_message(
         db, conversation_id, message_in
     )
     return ai_message
+
+
+@router.post("/{conversation_id}/messages/stream")
+async def send_message_stream(
+    conversation_id: int,
+    message_in: MessageCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Send a message and stream the AI response via SSE."""
+    conversation = conversation_service.get_by_id(db, conversation_id, current_user.id)
+    if not conversation:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Conversation not found",
+        )
+
+    async def event_generator():
+        async for chunk, ai_message in conversation_service.add_message_and_respond_stream(
+            db, conversation_id, message_in
+        ):
+            if ai_message:
+                # Final event with the saved message ID
+                yield f"data: {{\"done\": true, \"message_id\": {ai_message.id}}}\n\n"
+            else:
+                import json
+                yield f"data: {json.dumps({'content': chunk})}\n\n"
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )

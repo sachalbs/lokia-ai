@@ -1,0 +1,56 @@
+# ============================================================
+# GPU Server Docker Compose — Deploy on: 51.15.140.134 (L4 24GB)
+# ============================================================
+# This runs vLLM with Qwen2.5-32B-Instruct-AWQ (4-bit quantized)
+# which fits in ~18GB VRAM on an L4 GPU.
+#
+# Usage:
+#   1. SSH into the GPU server: ssh ubuntu@51.15.140.134
+#   2. Install Docker + NVIDIA Container Toolkit
+#   3. Copy this file and run: docker compose up -d
+#   4. Model will be available at http://51.15.140.134:8080/v1
+#
+# First startup downloads the model (~18GB), subsequent starts are instant.
+# ============================================================
+
+version: '3.8'
+
+services:
+  vllm:
+    image: vllm/vllm-openai:latest
+    container_name: lokia-vllm
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - HF_TOKEN=${HF_TOKEN:-}
+    volumes:
+      - model_cache:/root/.cache/huggingface
+    ports:
+      - "8080:8000"
+    command: >
+      --model Qwen/Qwen2.5-32B-Instruct-AWQ
+      --quantization awq
+      --dtype half
+      --max-model-len 8192
+      --gpu-memory-utilization 0.90
+      --tensor-parallel-size 1
+      --max-num-seqs 8
+      --enable-prefix-caching
+      --trust-remote-code
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+
+volumes:
+  model_cache:

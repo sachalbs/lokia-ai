@@ -45,7 +45,16 @@ services:
       - SECRET_KEY=${SECRET_KEY:-your-secret-key-change-in-production}
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
-      - CORS_ORIGINS=["http://localhost:3000"]
+      - DEFAULT_AI_MODEL=${DEFAULT_AI_MODEL:-qwen-local}
+      - LOCAL_MODEL_URL=${LOCAL_MODEL_URL:-http://51.15.140.134:8080/v1}
+      - LOCAL_MODEL_NAME=${LOCAL_MODEL_NAME:-Qwen/Qwen2.5-32B-Instruct-AWQ}
+      - AI_TEMPERATURE=${AI_TEMPERATURE:-0.7}
+      - AI_TOP_P=${AI_TOP_P:-0.9}
+      - AI_TOP_K=${AI_TOP_K:-20}
+      - AI_MAX_TOKENS=${AI_MAX_TOKENS:-4096}
+      - AI_REPETITION_PENALTY=${AI_REPETITION_PENALTY:-1.05}
+      - AI_SYSTEM_PROMPT=${AI_SYSTEM_PROMPT:-}
+      - CORS_ORIGINS=["http://localhost:3000","http://54.38.243.146:3000"]
     ports:
       - "8000:8000"
     depends_on:
@@ -55,7 +64,7 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --workers 4
 
   # Frontend
   frontend:
@@ -64,7 +73,7 @@ services:
       dockerfile: Dockerfile
     container_name: lokia-frontend
     environment:
-      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+      - NEXT_PUBLIC_API_URL=http://${VPS_HOST:-localhost}:8000/api/v1
     ports:
       - "3000:3000"
     depends_on:

@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import AsyncGenerator, List, Optional
 
 from app.models.conversation import Conversation
 from app.models.message import Message, MessageRole
@@ -94,6 +94,47 @@ class ConversationService:
         db.refresh(ai_message)
 
         return user_message, ai_message
+
+    async def add_message_and_respond_stream(
+        self,
+        db: Session,
+        conversation_id: int,
+        message_in: MessageCreate,
+        model: Optional[str] = None,
+    ) -> AsyncGenerator[tuple[str, Optional[Message]], None]:
+        """Add user message and stream AI response chunks."""
+        # Save user message
+        user_message = Message(
+            conversation_id=conversation_id,
+            role=MessageRole.USER,
+            content=message_in.content,
+        )
+        db.add(user_message)
+        db.commit()
+        db.refresh(user_message)
+
+        # Get conversation history for context
+        messages = self.get_messages(db, conversation_id)
+        message_history = [{"role": msg.role.value, "content": msg.content} for msg in messages]
+
+        # Stream AI response
+        full_response = ""
+        async for chunk in ai_service.generate_response_stream(message_history, model):
+            full_response += chunk
+            yield chunk, None
+
+        # Save the complete AI response
+        ai_message = Message(
+            conversation_id=conversation_id,
+            role=MessageRole.ASSISTANT,
+            content=full_response,
+            model=model or ai_service.default_model,
+        )
+        db.add(ai_message)
+        db.commit()
+        db.refresh(ai_message)
+
+        yield "", ai_message
 
 
 conversation_service = ConversationService()
